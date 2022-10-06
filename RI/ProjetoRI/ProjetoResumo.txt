@@ -1,0 +1,13 @@
+Projeto RI FASE 1
+1º Passar toda a informação dos clinical trials para uma classe com os campos mapeados
+2º Construir um dicionário que contém apenas e só (doc_id, brief_title)
+3º Ir buscar todos o vocabulário (todas as palavras que aparecem pelo menos uma vez no corpus)
+4º Construir a matrizes dos indexes com as clinical trials
+						  Vocab
+Clinical Trials 	[ 1 0 1 0 1 0 1 ]
+
+5º 
+						  Vocab
+Patients (queries) 	[ 1 0 1 0 1 0 1 ]
+
+6º Dicionário que (queries, [clinical_trials ordenados pela pontuação])
