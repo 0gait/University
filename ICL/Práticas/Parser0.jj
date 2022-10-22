@@ -1,0 +1,89 @@
+PARSER_BEGIN(Parser)
+
+
+/** ID lister. /
+public class Parser {
+}
+
+PARSER_END(Parser)
+
+SKIP :
+{
+  " "
+| "\t"
+| "\r"
+}
+
+TOKEN :
+{
+  < Id: ["a"-"z","A"-"Z"] ( ["a"-"z","A"-"Z","0"-"9"] ) >
+  |
+  < Num: (["0"-"9"]) + >
+  |
+  < PLUS : "+" >
+  |
+  < MINUS : "-">
+  |
+  < MULT : "">
+  |
+  < DIV : "/">
+  |
+  < LPAR : "(" >
+  |
+  < RPAR : ")" >
+  |
+  < Let: "let" >
+  |
+  < EL: "\n" >
+}
+
+ASTNode Start():
+{ ASTNode t; }
+{
+   t = Exp() <EL>
+   { return t; }
+}
+
+ASTNode Exp() :
+{ Token op;
+  ASTNode t1, t2; }
+{
+     t1=Term() ( ( op=<PLUS> | op=<MINUS> ) t2=Term() 
+                 { if (op.kind == PLUS) 
+                         t1 = new ASTPlus(t1,t2);
+                   else  t1 = new ASTSub(t1,t2);
+                 } 
+               )
+     { return t1; } 
+}
+
+ASTNode Term() :
+{Token op;
+  ASTNode t1, t2;}
+{
+     t1 = Fact() ( ( op=<MULT> | op=<DIV> ) t2 = Term() 
+                        { if (op.kind == MULT) 
+                         t1 = new ASTMult(t1,t2);
+                   else  t1 = new ASTDiv(t1,t2);
+                   } 
+        )?
+     { return t1; } 
+}
+
+
+ASTNode Fact() :
+{ Token n, xi; 
+  ASTNode t, ti;}
+{
+   ( n=<Num> { t = new ASTNum(Integer.parseInt(n.image)); } 
+   | <Id> 
+   | <LPAR> t=Exp() <RPAR> 
+   | <MINUS> t = Fact() { t=new ASTNeg(t); }
+   | <{> { map = new Map() } 
+          ( 
+            <Let> xi=<Id> <=> ti=t <;> { map.put(xi.image, ti) } 
+          )+ ti
+     <}>
+      { t = new ASTDef( map, ti ) } )
+   { return t; }
+}

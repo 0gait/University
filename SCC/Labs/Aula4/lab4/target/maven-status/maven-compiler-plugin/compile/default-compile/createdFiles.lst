@@ -1,0 +1,4 @@
+scc\cache\RedisCache.class
+scc\data\UserDAO.class
+scc\utils\TestCache.class
+scc\data\User.class
