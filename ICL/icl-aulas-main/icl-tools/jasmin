@@ -1,0 +1,4 @@
+#!/bin/sh
+
+JASMIN_JAR_PATH=$(find /opt jasmin.jar 2>/dev/null | grep -e "jasmin.jar")
+java -jar $JASMIN_JAR_PATH $*

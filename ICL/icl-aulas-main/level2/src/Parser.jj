@@ -1,0 +1,477 @@
+PARSER_BEGIN(Parser)
+
+import java.util.*;
+import util.*;
+
+import ast.*;
+import ast.bool.*;
+import ast.executionFlow.*;
+import ast.executionFlow.conditionalBranches.*;
+import ast.executionFlow.loops.*;
+import ast.memory.*;
+import ast.names.*;
+import ast.number.*;
+import ast.print.*;
+import ast.functions.*;
+import types.*;
+import types.primitives.*;
+/** ID lister. */
+public class Parser {
+  static boolean interpreting;
+}
+
+PARSER_END(Parser)
+
+SKIP :
+{
+  " "
+| "\t"
+| "\r\n"
+| "\n"
+}
+
+TOKEN :
+{ // token types
+  < TYPE_INT: "int">
+  |
+  <TYPE_BOOL: "bool">
+  |
+  <TYPE_REF: "ref_">
+  |
+  < DEF: "def" >
+  |
+  < IN: "in" >
+  |
+  < END: "end" >
+  |
+  < UP : "up" >
+  |
+  <FUN : "fun">
+  |
+  < TRUE : "true" >
+  |
+  < FALSE : "false" >
+  |
+
+  < NEW : "new" >
+  |
+  < ASSIGN : ":=" >
+  |
+  < DEREFERENCE : "!" >
+  |
+  < DOTS : ":">
+  |
+  < IF : "if" >
+  |
+  < THEN : "then" >
+  |
+  < ELSE : "else" >
+  |
+
+  < WHILE : "while" >
+  |
+  < DO: "do" >
+  |
+
+  < PRINT : "println" >
+  |
+  < Id: ["a"-"z","A"-"Z"] ( ["a"-"z","A"-"Z","0"-"9"] )* >
+  |
+  < Num: (["0"-"9"]) + >
+  |
+  < PLUS : "+" >
+  |
+  < MINUS : "-">
+  |
+  < MUL : "*">
+  |
+  < DIV : "/">
+  |
+  < LPAR : "(" >
+  |
+  < RPAR : ")" >
+  |
+  < EQUALS : "=" >
+  |
+  < EQUALS_COMP : "==" >
+  |
+  < NOT_EQUALS : "!=" >
+  |
+  < GREATER_THAN : ">" >
+  |
+  < GREATER_THAN_OR_EQUAL_TO : ">=" >
+  |
+  < LESS_THAN : "<" >
+  |
+  < LESS_THAN_OR_EQUAL_TO : "<=" >
+  |
+  < LOGICAL_AND : "&&" >
+  |
+  < LOGICAL_OR : "||" >
+  |
+  < LOGICAL_NOT : "~" >
+  |
+  <COMMA : ",">
+  |
+  <ARROW : "->">
+  |
+  < END_CMD: ";" >
+  |
+  < END_PROGRAM : ";;" >
+}
+
+ASTNode Start(boolean interpreting) :
+{
+Parser.interpreting = interpreting;
+ASTNode t1, t2;
+}
+{
+  t1 = Program() <END_PROGRAM>
+	{ return t1; }
+}
+
+ASTNode Program() :
+{
+ASTNode t1, t2;
+}
+{
+  t1 = Assign() ( <END_CMD> t2=Assign() 
+
+                 {
+                   t1 = new ASTSequentialFlow(t1, t2);
+                 }
+
+                 )*
+	{ return t1; }
+}
+
+ASTNode Assign() :
+{
+  ASTNode t1,t2;
+}
+{
+    (t1 = BA() ( <ASSIGN> t2=BA() 
+
+                 {
+                   t1 = new ASTAssign(t1, t2);
+                 }
+
+                 )*
+    )
+    { return t1; }
+}
+
+ASTNode BA() :
+{
+  ASTNode t1,t2;
+}
+{
+    (t1 = BM() ( <LOGICAL_OR> t2=BM() 
+
+                 {
+                   LogicalBinaryOperator operator = LogicalBinaryOperator.OR;
+                    t1 = new ASTLogicalBinaryOperation(t1, t2, operator);
+                 }
+
+                 )*
+    )
+    { return t1; }
+}
+
+ASTNode BM() :
+{
+  ASTNode t1,t2;
+}
+{
+    (t1 = RelationalOps() ( <LOGICAL_AND> t2=RelationalOps() 
+
+                 {
+                    LogicalBinaryOperator operator = LogicalBinaryOperator.AND;
+                    t1 = new ASTLogicalBinaryOperation(t1, t2, operator);
+                 }
+
+                 )*
+    )
+    { return t1; }
+}
+
+ASTNode RelationalOps() :
+{
+  ASTNode t1,t2;
+  Token tok;
+}
+{
+    (t1 = Exp() ( ( tok=<EQUALS_COMP> | tok=<NOT_EQUALS> | 
+                  tok=<GREATER_THAN> | tok=<GREATER_THAN_OR_EQUAL_TO> |
+                  tok=<LESS_THAN> | tok=<LESS_THAN_OR_EQUAL_TO>) t2=Exp() 
+
+                 {
+                    NumberRelationalBinaryOperator operator =
+                        NumberRelationalBinaryOperator.parseOperator(tok.image);
+                    t1 = new ASTNumberRelationalBinaryOperation(t1, t2, operator);
+                 }
+
+                 )?
+    )
+    { return t1; }
+}
+
+ASTNode Exp() :
+{
+ASTNode t1,t2;
+Token tok;
+}
+{
+    (t1 = Term() ( ( tok=<PLUS> | tok=<MINUS> ) t2=Term() 
+
+                 {
+                   NumberArithmeticBinaryOperator operator;
+                   if (tok.kind == PLUS)
+                      operator = NumberArithmeticBinaryOperator.ADD;
+                   else 
+                      operator = NumberArithmeticBinaryOperator.SUB;
+
+                    t1 = new ASTNumberArithmeticBinaryOperation(t1, t2, operator);
+                 }
+
+                 )*
+    )
+     { return t1; }
+}
+
+ASTNode Apply() :
+{
+  ASTNode t1;
+  List <ASTNode> al;
+}
+{
+  t1=Fact() ( <LPAR> al = AL()  <RPAR>
+                {
+                  t1 = new ASTApply(t1,al);
+                } 
+            )*
+
+  {
+    return t1;
+  }
+}
+
+ASTNode Term() :
+{
+ASTNode t1,t2;
+List<ASTNode> al;
+Token tok;
+}
+{
+      ( t1=Apply() 
+              ( ( tok=<MUL> | tok=<DIV> ) t2=Apply()
+                {
+                  NumberArithmeticBinaryOperator operator;
+                  if (tok.kind == MUL)
+                      operator = NumberArithmeticBinaryOperator.MUL;
+                  else
+                      operator = NumberArithmeticBinaryOperator.DIV;
+
+                  t1 = new ASTNumberArithmeticBinaryOperation(t1, t2, operator);
+                }
+              )*
+      )
+      
+     { return t1; } 
+	
+}
+
+List <ASTNode> AL():
+{ASTNode t1, t2;
+List<ASTNode> result = new LinkedList<ASTNode>();
+}
+{
+  (t1 = Program() {
+    result.add(t1);
+  }
+  (<COMMA> t2 = Program(){
+    result.add(t2);
+  })*)?
+
+  {
+    return result;
+  }
+}
+
+List <FunctionArg> PL_Interpreter():
+{
+Token tok;
+List<FunctionArg> result = new LinkedList<FunctionArg>();
+}
+{
+  ( tok=<Id>  {result.add(new FunctionArg(tok.image));}
+  (<COMMA>  tok=<Id> {
+    result.add(new FunctionArg(tok.image));
+  })*)?
+  
+  {
+    return result;
+  }
+}
+
+List <FunctionArg> PL_Compiler():
+{
+Token tok1;
+IType type;
+List<FunctionArg> result = new LinkedList<FunctionArg>();
+}
+{
+  (tok1=<Id> <DOTS> type = parseType()
+  {
+    result.add(new FunctionArg(tok1.image, type));
+  } (<COMMA>  tok1=<Id> <DOTS> type = parseType()
+  {
+    result.add(new FunctionArg(tok1.image, type));
+  })*)?
+ {
+   return result;
+ }
+}
+
+
+Pair<Bind, IType> ParseBind():
+{
+  ASTNode t1;
+  Token tok;
+  Bind bind;
+  IType type = null;
+  Pair<Bind, IType> result;
+}
+{
+  (
+    (tok = <Id>) (<DOTS> type = parseType())? <EQUALS> t1=Program()
+      {
+        bind = new Bind(tok.image, t1);
+
+        if (!interpreting)
+        {
+          // check if bind has a type
+          if (type == null)
+            throw new ParseException("Expected type for bind.", tok);
+
+          result = new Pair<Bind, IType>(bind, type);
+        }
+        else
+          result = new Pair<Bind, IType>(bind, null);
+      }
+  )
+
+  {
+    return result;
+  }
+}
+
+
+
+
+ASTNode Fact() :
+{
+ASTNode t1, t2,t3;
+t1 = t2 = t3 = null;
+Token tok;
+int upDepth = 0;
+}
+{
+   (
+
+    tok=<Num> { t1 = new ASTNum(Integer.parseInt(tok.image)); } |
+
+    tok=<Id>  {t1 = new ASTId(tok.image);} |
+
+    tok=<TRUE> { t1 = new ASTBool(true); } |
+
+    tok=<FALSE> { t1 = new ASTBool(false); } |
+
+    <LPAR> t1=Program() <RPAR> |
+
+    <MINUS> t1=Fact() {t1 = new ASTUminus(t1);} |
+
+    <LOGICAL_NOT> t1=Fact() {t1 = new ASTBoolNot(t1);} |
+
+    <DEF>
+          {
+            List<Bind> init = new LinkedList<Bind>(); 
+            List<IType> types = null;
+            
+            if (!interpreting)
+              types = new LinkedList<IType>();
+            
+            Pair<Bind, IType> bindWithType = null;
+          }
+
+            ( bindWithType = ParseBind()
+              {
+                init.add(bindWithType.getLeft());
+
+                if(!interpreting)
+                  types.add(bindWithType.getRight());
+              }
+            )+ (<IN> t1 = Program() <END> 
+              {
+                if(interpreting)
+                  t1 = new ASTDef(init, t1);
+                else
+                  t1 = new ASTDef(init,t1,types);
+              }
+           )
+    |
+    
+    (
+      (<UP>
+        {
+          upDepth++;
+        })+ (tok = <Id>
+              {
+                t1 = new ASTUp(tok.image, upDepth);
+              })
+    )
+
+    |
+    <NEW> t1=Fact() { t1 = new ASTNew(t1); } |
+
+    <DEREFERENCE> t1=Fact() { t1 = new ASTDereference(t1); } |
+
+    <IF> t1=Program() <THEN> t2=Program() (<ELSE> t3=Program())? <END> { t1 = new ASTIfThenElse(t1, t2, t3); } |
+
+    <WHILE> t1=Program() <DO> t2=Program() <END> { t1 = new ASTWhileLoop(t1, t2); } |
+
+    <PRINT> <LPAR> t1=Assign() <RPAR> { t1 = new ASTPrintln(t1); } |
+
+    <FUN> { List<FunctionArg> args; 
+      if(interpreting)
+              args = PL_Interpreter();
+            else
+              args = PL_Compiler();} <ARROW> t2 = Program() <END> {
+       t1 = new ASTFun(args, t2);
+    }
+
+   )
+  { return t1;}  
+}
+
+IType parseType() : 
+{
+  Token tok;
+  IType type;
+}
+
+{ (
+  tok = <TYPE_INT> {type = TypeInt.TYPE;} |
+  tok = <TYPE_BOOL> {type = TypeBool.TYPE;}|
+  <TYPE_REF> {type = new TypeRef(parseType());}|
+  <LPAR> {List <IType> argTypes = new LinkedList<IType>();} 
+  
+  (type = parseType() {argTypes.add(type);} (<COMMA> type = parseType() { argTypes.add(type);} )* )? 
+
+  <RPAR> type = parseType() {
+    type = new TypeFunction(argTypes, type);
+  })
+
+  {return type;}
+
+}

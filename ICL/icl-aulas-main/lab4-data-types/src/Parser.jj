@@ -1,0 +1,312 @@
+PARSER_BEGIN(Parser)
+
+import java.util.*;
+import util.*;
+
+import ast.*;
+import ast.bool.*;
+import ast.executionFlow.*;
+import ast.executionFlow.conditionalBranches.*;
+import ast.executionFlow.loops.*;
+import ast.memory.*;
+import ast.names.*;
+import ast.number.*;
+import ast.print.*;
+
+/** ID lister. */
+public class Parser {}
+
+PARSER_END(Parser)
+
+SKIP :
+{
+  " "
+| "\t"
+| "\r\n"
+| "\n"
+}
+
+TOKEN :
+{ 
+  < EXIT: "exit" >
+  |
+  < DEF: "def" >
+  |
+  < IN: "in" >
+  |
+  < END: "end" >
+  |
+  < UP : "up" >
+
+  |
+  < TRUE : "true" >
+  |
+  < FALSE : "false" >
+  |
+
+  < NEW : "new" >
+  |
+  < ASSIGN : ":=" >
+  |
+  < DEREFERENCE : "!" >
+  |
+
+  < IF : "if" >
+  |
+  < THEN : "then" >
+  |
+  < ELSE : "else" >
+  |
+
+  < WHILE : "while" >
+  |
+  < DO: "do" >
+  |
+
+  < PRINT : "println" >
+  |
+
+  < Id: ["a"-"z","A"-"Z"] ( ["a"-"z","A"-"Z","0"-"9"] )* >
+  |
+  < Num: (["0"-"9"]) + >
+  |
+  < PLUS : "+" >
+  |
+  < MINUS : "-">
+  |
+  < MUL : "*">
+  |
+  < DIV : "/">
+  |
+  < LPAR : "(" >
+  |
+  < RPAR : ")" >
+  |
+
+  < EQUALS : "=" >
+  |
+  < EQUALS_COMP : "==" >
+  |
+  < NOT_EQUALS : "!=" >
+  |
+  < GREATER_THAN : ">" >
+  |
+  < GREATER_THAN_OR_EQUAL_TO : ">=" >
+  |
+  < LESS_THAN : "<" >
+  |
+  < LESS_THAN_OR_EQUAL_TO : "<=" >
+
+  |
+  < LOGICAL_AND : "&&" >
+  |
+  < LOGICAL_OR : "||" >
+  |
+  < LOGICAL_NOT : "~" >
+  |
+
+  < END_CMD: ";" >
+  |
+  < END_PROGRAM : ";;" >
+}
+
+ASTNode Start() :
+{
+ASTNode t1, t2;
+}
+{
+  t1 = Program() <END_PROGRAM>
+	{ return t1; }
+}
+
+ASTNode Program() :
+{
+ASTNode t1, t2;
+}
+{
+  t1 = Assign() ( <END_CMD> t2=Assign() 
+
+                 {
+                   t1 = new ASTSequentialFlow(t1, t2);
+                 }
+
+                 )*
+	{ return t1; }
+}
+
+ASTNode Assign() :
+{
+  ASTNode t1,t2;
+}
+{
+    (t1 = BA() ( <ASSIGN> t2=BA() 
+
+                 {
+                   t1 = new ASTAssign(t1, t2);
+                 }
+
+                 )*
+    )
+    { return t1; }
+}
+
+ASTNode BA() :
+{
+  ASTNode t1,t2;
+}
+{
+    (t1 = BM() ( <LOGICAL_OR> t2=BM() 
+
+                 {
+                   LogicalBinaryOperator operator = LogicalBinaryOperator.OR;
+                    t1 = new ASTLogicalBinaryOperation(t1, t2, operator);
+                 }
+
+                 )*
+    )
+    { return t1; }
+}
+
+ASTNode BM() :
+{
+  ASTNode t1,t2;
+}
+{
+    (t1 = RelationalOps() ( <LOGICAL_AND> t2=RelationalOps() 
+
+                 {
+                    LogicalBinaryOperator operator = LogicalBinaryOperator.AND;
+                    t1 = new ASTLogicalBinaryOperation(t1, t2, operator);
+                 }
+
+                 )*
+    )
+    { return t1; }
+}
+
+ASTNode RelationalOps() :
+{
+  ASTNode t1,t2;
+  Token tok;
+}
+{
+    (t1 = Exp() ( ( tok=<EQUALS_COMP> | tok=<NOT_EQUALS> | 
+                  tok=<GREATER_THAN> | tok=<GREATER_THAN_OR_EQUAL_TO> |
+                  tok=<LESS_THAN> | tok=<LESS_THAN_OR_EQUAL_TO>) t2=Exp() 
+
+                 {
+                    NumberRelationalBinaryOperator operator =
+                        NumberRelationalBinaryOperator.parseOperator(tok.image);
+                    t1 = new ASTNumberRelationalBinaryOperation(t1, t2, operator);
+                 }
+
+                 )?
+    )
+    { return t1; }
+}
+
+ASTNode Exp() :
+{
+ASTNode t1,t2;
+Token tok;
+}
+{
+    (t1 = Term() ( ( tok=<PLUS> | tok=<MINUS> ) t2=Term() 
+
+                 {
+                   NumberArithmeticBinaryOperator operator;
+                   if (tok.kind == PLUS)
+                      operator = NumberArithmeticBinaryOperator.ADD;
+                   else 
+                      operator = NumberArithmeticBinaryOperator.SUB;
+
+                    t1 = new ASTNumberArithmeticBinaryOperation(t1, t2, operator);
+                 }
+
+                 )*
+    )
+     { return t1; }
+}
+
+ASTNode Term() :
+{
+ASTNode t1,t2;
+Token tok;
+}
+{
+     t1=Fact() ( ( tok=<MUL> | tok=<DIV> ) t2=Fact()
+
+                {
+                  NumberArithmeticBinaryOperator operator;
+                  if (tok.kind == MUL)
+                      operator = NumberArithmeticBinaryOperator.MUL;
+                  else
+                      operator = NumberArithmeticBinaryOperator.DIV;
+
+                  t1 = new ASTNumberArithmeticBinaryOperation(t1, t2, operator);
+                }
+     ) *
+
+     { return t1; }  
+	
+}
+
+ASTNode Fact() :
+{ASTNode t1 = null;
+ASTNode t2, t3;
+Token tok;
+int upDepth = 0;
+}
+{
+   (  <EXIT> {System.exit(0);} |
+
+    tok=<Num> { t1 = new ASTNum(Integer.parseInt(tok.image)); } |
+
+    tok=<Id>  {t1 = new ASTId(tok.image);} |
+
+    tok=<TRUE> { t1 = new ASTBool(true); } |
+
+    tok=<FALSE> { t1 = new ASTBool(false); } |
+
+    <LPAR> t1=Program() <RPAR> |
+
+    <MINUS> t1=Fact() {t1 = new ASTUminus(t1);} |
+
+    <LOGICAL_NOT> t1=Fact() {t1 = new ASTBoolNot(t1);} |
+
+    <DEF> { List<Bind> init = new LinkedList<Bind>(); }
+            ((tok = <Id>) <EQUALS> t2=Program()
+              {
+                init.add(new Bind(tok.image, t2));
+              }
+            )+ (<IN> t1 = Program() <END> 
+              {
+                t1 = new ASTDef(init, t1);
+              }
+           )
+    |
+    
+    (
+      (<UP>
+        {
+          upDepth++;
+        })+ (tok = <Id>
+              {
+                t1 = new ASTUp(tok.image, upDepth);
+              })
+    )
+
+    |
+    <NEW> t1=Fact() { t1 = new ASTNew(t1); } |
+
+    <DEREFERENCE> t1=Fact() { t1 = new ASTDereference(t1); } |
+
+    <IF> t1=Program() <THEN> t2=Program() <ELSE> t3=Program() <END> { t1 = new ASTIfThenElse(t1, t2, t3); } |
+
+    <WHILE> t1=Program() <DO> t2=Program() <END> { t1 = new ASTWhileLoop(t1, t2); } |
+
+    <PRINT> t1=Fact() { t1 = new ASTPrintln(t1); }
+
+   )
+  { return t1;}  
+}

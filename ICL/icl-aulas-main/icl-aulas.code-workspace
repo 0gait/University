@@ -1,0 +1,28 @@
+{
+	"folders": [
+		{
+			"path": "./aula1"
+		},
+		{
+			"path": "aula2"
+		},
+		{
+			"path": "lab3-def-expressions"
+		},
+		{
+			"path": "lab4-data-types"
+		},
+		{
+			"path": "level2"
+		},
+		{
+			"path": "icl-tools"
+		},
+		{
+			"path": "level3"
+		}
+	],
+	"settings": {
+		"java.dependency.packagePresentation": "hierarchical"
+	}
+}
