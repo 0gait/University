@@ -1,0 +1,28 @@
+M/M/1
+λ = 10 -> se for medio por minuto fica: 1/10
+μ = 12 -> serviço 
+p =  λ / (S * μ)
+L = p / (1-p)
+Lq = L - p
+W = L / λ
+Wq = Lq / λ
+P0 = 1 - p
+Pn = p^n * P0
+
+
+
+Probabilidade de um cliente estar mais que t m na fila de espera
+P(Wq > t) = p*e^-(μ*(1-p)*t)
+
+Probabilidade de um cliente estar mais que t m na loja
+P(W > t) = e^(−μ(1−ρ) t)
+
+
+
+Com fila limitada M/M/1/k 
+_
+λ = λ * (1-Pk)
+
+Taxa de pressão: p = λ/(S * μ)
+		      _
+Taxa de ocupação: p = λ/(S * μ)
